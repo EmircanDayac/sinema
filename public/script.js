@@ -9,6 +9,7 @@ const localVideo = document.getElementById('local-video');
 const remoteVideo = document.getElementById('remote-video');
 const mainVideo = document.getElementById('main-video');
 const remoteWebcamContainer = document.getElementById('remote-webcam-container');
+const ambilightVideo = document.getElementById('ambilight-video');
 const waitingText = document.getElementById('waiting-text');
 
 const micBtn = document.getElementById('mic-btn');
@@ -164,6 +165,7 @@ function createPeerConnection(remoteId) {
 
         if (isRemoteScreenSharing && !mainVideo.srcObject) {
             mainVideo.srcObject = stream;
+            ambilightVideo.srcObject = stream;
             mainVideo.muted = false; // İzleyici sesi duymalı
             waitingText.style.display = 'none';
         } else if (isRemoteWebcamActive && !remoteVideo.srcObject) {
@@ -258,6 +260,7 @@ socket.on('user-disconnected', (userId) => {
         
         if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
             mainVideo.srcObject = null;
+            ambilightVideo.srcObject = null;
             waitingText.style.display = 'flex';
         }
         
@@ -326,6 +329,7 @@ socket.on('screen-share-info', (data) => {
         if (index === -1) index = 0; // Fallback to first available
         
         mainVideo.srcObject = pendingStreams[index];
+        ambilightVideo.srcObject = pendingStreams[index];
         mainVideo.muted = false; // İzleyici sesi duymalı
         waitingText.style.display = 'none';
         pendingStreams.splice(index, 1);
@@ -335,6 +339,7 @@ socket.on('screen-share-info', (data) => {
 socket.on('screen-share-stopped', () => {
     if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
         mainVideo.srcObject = null;
+        ambilightVideo.srcObject = null;
         waitingText.style.display = 'flex';
     }
     remoteScreenStreamId = null;
@@ -435,6 +440,7 @@ screenBtn.addEventListener('click', async () => {
         screenBtn.classList.add('active');
         
         mainVideo.srcObject = screenStream;
+        ambilightVideo.srcObject = screenStream;
         mainVideo.muted = true; // Kendi paylaştığımız sesi kendimiz duymamalıyız (Yankıyı önler)
         waitingText.style.display = 'none';
 
@@ -478,6 +484,7 @@ function stopScreenShare() {
     // Sadece eğer ana ekranda bizim paylaştığımız görüntü varsa ekranı temizle
     if (mainVideo.srcObject === screenStream) {
         mainVideo.srcObject = null;
+        ambilightVideo.srcObject = null;
         waitingText.style.display = 'flex';
     }
     
