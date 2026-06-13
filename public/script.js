@@ -58,10 +58,9 @@ let makingOffer = false;
 let ignoreOffer = false;
 let polite = false;
 
-let pendingStreams = [];
-let isRemoteScreenSharing = false;
-let isRemoteWebcamActive = false;
-let remoteWebcamStreamId = null;
+let activeStreams = [];
+let remoteWebcamId = null;
+let remoteScreenId = null;
 
 const configuration = {
     iceServers: [
@@ -158,22 +157,9 @@ function createPeerConnection(remoteId) {
         const stream = event.streams[0];
         if (!stream) return;
 
-        // Prevent processing the exact same stream multiple times
-        if (mainVideo.srcObject === stream || remoteVideo.srcObject === stream || pendingStreams.includes(stream)) {
-            return;
-        }
-
-        if (isRemoteScreenSharing && !mainVideo.srcObject) {
-            mainVideo.srcObject = stream;
-            ambilightVideo.srcObject = stream;
-            mainVideo.muted = false; // İzleyici sesi duymalı
-            waitingText.style.display = 'none';
-        } else if (isRemoteWebcamActive && !remoteVideo.srcObject) {
-            remoteVideo.srcObject = stream;
-            remoteWebcamContainer.style.display = 'block';
-        } else {
-            // Socket events haven't arrived yet, queue it.
-            pendingStreams.push(stream);
+        if (!activeStreams.includes(stream)) {
+            activeStreams.push(stream);
+            matchStreams();
         }
     };
 
@@ -258,18 +244,21 @@ socket.on('user-disconnected', (userId) => {
         remoteVideo.srcObject = null;
         remoteWebcamContainer.style.display = 'none';
         
-        // Eğer ana ekranda diğer kullanıcının ekranı veya videosu varsa temizle
         if (mainVideo.srcObject && mainVideo.srcObject !== screenStream) {
+            activeStreams = activeStreams.filter(s => s !== mainVideo.srcObject);
             mainVideo.srcObject = null;
             ambilightVideo.srcObject = null;
             waitingText.style.display = 'flex';
         }
         
+        if (remoteVideo.srcObject) {
+            activeStreams = activeStreams.filter(s => s !== remoteVideo.srcObject);
+        }
+        
         remoteUserId = null;
-        remoteScreenStreamId = null;
-        isRemoteScreenSharing = false;
-        isRemoteWebcamActive = false;
-        pendingStreams = [];
+        remoteScreenId = null;
+        remoteWebcamId = null;
+        activeStreams = [];
     }
 });
 
@@ -308,43 +297,63 @@ socket.on('signal', async (senderId, data) => {
 });
 
 socket.on('webcam-info', (id) => {
-    isRemoteWebcamActive = true;
-    remoteWebcamStreamId = id;
-    
-    if (pendingStreams.length > 0 && !remoteVideo.srcObject) {
-        let index = pendingStreams.findIndex(s => s.id === id);
-        if (index === -1) index = 0; // Fallback to first available if ID is mangled
-        
-        remoteVideo.srcObject = pendingStreams[index];
-        remoteWebcamContainer.style.display = 'block';
-        pendingStreams.splice(index, 1);
-    }
+    remoteWebcamId = id;
+    matchStreams();
 });
 
 socket.on('screen-share-info', (data) => {
-    isRemoteScreenSharing = true;
-    remoteScreenStreamId = data.streamId;
-    
-    if (pendingStreams.length > 0 && !mainVideo.srcObject) {
-        let index = pendingStreams.findIndex(s => s.id === data.streamId);
-        if (index === -1) index = 0; // Fallback to first available
-        
-        mainVideo.srcObject = pendingStreams[index];
-        ambilightVideo.srcObject = pendingStreams[index];
-        mainVideo.muted = false; // İzleyici sesi duymalı
-        waitingText.style.display = 'none';
-        pendingStreams.splice(index, 1);
-    }
+    remoteScreenId = data.streamId;
+    matchStreams();
 });
+
+function matchStreams() {
+    // 1. Önce ID'lerin tam eşleştiği yayınları yerleştir
+    if (remoteScreenId && !mainVideo.srcObject) {
+        const stream = activeStreams.find(s => s.id === remoteScreenId);
+        if (stream) {
+            mainVideo.srcObject = stream;
+            ambilightVideo.srcObject = stream;
+            mainVideo.muted = false;
+            waitingText.style.display = 'none';
+        }
+    }
+    
+    if (remoteWebcamId && !remoteVideo.srcObject) {
+        const stream = activeStreams.find(s => s.id === remoteWebcamId);
+        if (stream) {
+            remoteVideo.srcObject = stream;
+            remoteWebcamContainer.style.display = 'block';
+        }
+    }
+
+    // 2. Tarayıcı ID'yi bozduysa (Mangling), sıraya göre eşleştir
+    let unmatched = activeStreams.filter(s => s !== mainVideo.srcObject && s !== remoteVideo.srcObject);
+    
+    // Kamera yayını hep önce gelir, o yüzden önce kamerayı doldur
+    if (remoteWebcamId && !remoteVideo.srcObject && unmatched.length > 0) {
+        const stream = unmatched.shift();
+        remoteVideo.srcObject = stream;
+        remoteWebcamContainer.style.display = 'block';
+    }
+    
+    // Kalanı ekran paylaşımıdır
+    if (remoteScreenId && !mainVideo.srcObject && unmatched.length > 0) {
+        const stream = unmatched.shift();
+        mainVideo.srcObject = stream;
+        ambilightVideo.srcObject = stream;
+        mainVideo.muted = false;
+        waitingText.style.display = 'none';
+    }
+}
 
 socket.on('screen-share-stopped', () => {
     if (mainVideo.srcObject && mainVideo.srcObject !== screenStream) {
+        activeStreams = activeStreams.filter(s => s !== mainVideo.srcObject);
         mainVideo.srcObject = null;
         ambilightVideo.srcObject = null;
         waitingText.style.display = 'flex';
     }
-    remoteScreenStreamId = null;
-    isRemoteScreenSharing = false;
+    remoteScreenId = null;
 });
 
 // Room full
