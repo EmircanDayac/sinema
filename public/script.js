@@ -65,14 +65,25 @@ let remoteScreenId = null;
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
     ]
 };
 
 // Start Local Media
 async function startLocalMedia() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // Kamerayı küçük ve düşük FPS'te başlat (Bant genişliğini filme sakla)
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 640, max: 854 }, 
+                height: { ideal: 360, max: 480 },
+                frameRate: { ideal: 24, max: 30 }
+            }, 
+            audio: true 
+        });
         localVideo.srcObject = localStream;
     } catch (err) {
         console.error('Error accessing media devices.', err);
@@ -421,9 +432,13 @@ screenBtn.addEventListener('click', async () => {
         }
 
         try {
-            // First attempt: High fidelity settings (Desktop/Ideal)
+            // First attempt: Optimal settings for movies without causing freezing
             screenStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { frameRate: { ideal: 60, max: 60 } },
+                video: { 
+                    frameRate: { ideal: 30, max: 60 },
+                    width: { ideal: 1280, max: 1920 },
+                    height: { ideal: 720, max: 1080 }
+                },
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
