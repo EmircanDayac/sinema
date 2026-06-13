@@ -258,7 +258,8 @@ socket.on('user-disconnected', (userId) => {
         remoteVideo.srcObject = null;
         remoteWebcamContainer.style.display = 'none';
         
-        if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
+        // Eğer ana ekranda diğer kullanıcının ekranı veya videosu varsa temizle
+        if (mainVideo.srcObject && mainVideo.srcObject !== screenStream) {
             mainVideo.srcObject = null;
             ambilightVideo.srcObject = null;
             waitingText.style.display = 'flex';
@@ -337,7 +338,7 @@ socket.on('screen-share-info', (data) => {
 });
 
 socket.on('screen-share-stopped', () => {
-    if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
+    if (mainVideo.srcObject && mainVideo.srcObject !== screenStream) {
         mainVideo.srcObject = null;
         ambilightVideo.srcObject = null;
         waitingText.style.display = 'flex';
@@ -363,7 +364,10 @@ inviteBtn.addEventListener('click', () => {
 });
 
 micBtn.addEventListener('click', () => {
-    if (!localStream) return;
+    if (!localStream || !localStream.getAudioTracks()[0]) {
+        alert("Mikrofon bulunamadı veya erişim reddedildi.");
+        return;
+    }
     isMicMuted = !isMicMuted;
     localStream.getAudioTracks()[0].enabled = !isMicMuted;
     
@@ -377,7 +381,10 @@ micBtn.addEventListener('click', () => {
 });
 
 cameraBtn.addEventListener('click', () => {
-    if (!localStream) return;
+    if (!localStream || !localStream.getVideoTracks()[0]) {
+        alert("Kamera bulunamadı veya erişim reddedildi.");
+        return;
+    }
     isCameraOff = !isCameraOff;
     localStream.getVideoTracks()[0].enabled = !isCameraOff;
     

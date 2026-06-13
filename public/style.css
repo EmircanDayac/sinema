@@ -408,6 +408,7 @@ body {
     gap: 0.8rem;
     color: #555;
     text-align: center;
+    z-index: 2;
 }
 
 .waiting-text i {
