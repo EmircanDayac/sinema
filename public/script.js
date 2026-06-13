@@ -57,7 +57,9 @@ let makingOffer = false;
 let ignoreOffer = false;
 let polite = false;
 
-let pendingStreams = {};
+let pendingStreams = [];
+let isRemoteScreenSharing = false;
+let isRemoteWebcamActive = false;
 let remoteWebcamStreamId = null;
 
 const configuration = {
@@ -153,20 +155,23 @@ function createPeerConnection(remoteId) {
 
     peerConnection.ontrack = (event) => {
         const stream = event.streams[0];
-        
-        if (remoteScreenStreamId === stream.id) {
-            if (mainVideo.srcObject !== stream) {
-                mainVideo.srcObject = stream;
-                waitingText.style.display = 'none';
-            }
-        } else if (remoteWebcamStreamId === stream.id) {
-            if (remoteVideo.srcObject !== stream) {
-                remoteVideo.srcObject = stream;
-                remoteWebcamContainer.style.display = 'block';
-            }
+        if (!stream) return;
+
+        // Prevent processing the exact same stream multiple times
+        if (mainVideo.srcObject === stream || remoteVideo.srcObject === stream || pendingStreams.includes(stream)) {
+            return;
+        }
+
+        if (isRemoteScreenSharing && !mainVideo.srcObject) {
+            mainVideo.srcObject = stream;
+            mainVideo.muted = false; // İzleyici sesi duymalı
+            waitingText.style.display = 'none';
+        } else if (isRemoteWebcamActive && !remoteVideo.srcObject) {
+            remoteVideo.srcObject = stream;
+            remoteWebcamContainer.style.display = 'block';
         } else {
-            // Keep it pending until we get the socket info
-            pendingStreams[stream.id] = stream;
+            // Socket events haven't arrived yet, queue it.
+            pendingStreams.push(stream);
         }
     };
 
@@ -251,7 +256,6 @@ socket.on('user-disconnected', (userId) => {
         remoteVideo.srcObject = null;
         remoteWebcamContainer.style.display = 'none';
         
-        // Only clear mainVideo if it was showing the remote user's screen share
         if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
             mainVideo.srcObject = null;
             waitingText.style.display = 'flex';
@@ -259,6 +263,9 @@ socket.on('user-disconnected', (userId) => {
         
         remoteUserId = null;
         remoteScreenStreamId = null;
+        isRemoteScreenSharing = false;
+        isRemoteWebcamActive = false;
+        pendingStreams = [];
     }
 });
 
@@ -297,24 +304,31 @@ socket.on('signal', async (senderId, data) => {
 });
 
 socket.on('webcam-info', (id) => {
+    isRemoteWebcamActive = true;
     remoteWebcamStreamId = id;
-    if (pendingStreams[id]) {
-        if (remoteVideo.srcObject !== pendingStreams[id]) {
-            remoteVideo.srcObject = pendingStreams[id];
-            remoteWebcamContainer.style.display = 'block';
-        }
-        delete pendingStreams[id];
+    
+    if (pendingStreams.length > 0 && !remoteVideo.srcObject) {
+        let index = pendingStreams.findIndex(s => s.id === id);
+        if (index === -1) index = 0; // Fallback to first available if ID is mangled
+        
+        remoteVideo.srcObject = pendingStreams[index];
+        remoteWebcamContainer.style.display = 'block';
+        pendingStreams.splice(index, 1);
     }
 });
 
 socket.on('screen-share-info', (data) => {
+    isRemoteScreenSharing = true;
     remoteScreenStreamId = data.streamId;
-    if (pendingStreams[data.streamId]) {
-        if (mainVideo.srcObject !== pendingStreams[data.streamId]) {
-            mainVideo.srcObject = pendingStreams[data.streamId];
-            waitingText.style.display = 'none';
-        }
-        delete pendingStreams[data.streamId];
+    
+    if (pendingStreams.length > 0 && !mainVideo.srcObject) {
+        let index = pendingStreams.findIndex(s => s.id === data.streamId);
+        if (index === -1) index = 0; // Fallback to first available
+        
+        mainVideo.srcObject = pendingStreams[index];
+        mainVideo.muted = false; // İzleyici sesi duymalı
+        waitingText.style.display = 'none';
+        pendingStreams.splice(index, 1);
     }
 });
 
@@ -324,6 +338,7 @@ socket.on('screen-share-stopped', () => {
         waitingText.style.display = 'flex';
     }
     remoteScreenStreamId = null;
+    isRemoteScreenSharing = false;
 });
 
 // Room full
@@ -420,6 +435,7 @@ screenBtn.addEventListener('click', async () => {
         screenBtn.classList.add('active');
         
         mainVideo.srcObject = screenStream;
+        mainVideo.muted = true; // Kendi paylaştığımız sesi kendimiz duymamalıyız (Yankıyı önler)
         waitingText.style.display = 'none';
 
         socket.emit('screen-share-info', { streamId: screenStream.id });
