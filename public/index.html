@@ -13,11 +13,16 @@
         <div class="glass-panel">
             <div class="logo">DAYAÇ <span>SİNEMASI</span></div>
             <p>Sadece tek kişiye özel; kesintisiz, yüksek kalite film keyfi.</p>
+            <div class="rooms-container" id="rooms-container">
+                <h3>🎬 Açık Odalar</h3>
+                <ul id="rooms-list">
+                    <li class="empty-rooms">Şu an açık oda yok. Aşağıdan bir tane oluştur!</li>
+                </ul>
+            </div>
+
             <div class="input-group">
-                <input type="text" id="room-input" placeholder="Oda İsmi Girin (Örn: AsklarinSinemasi)" autocomplete="off">
-                <button id="join-btn">Salona Geç</button>
-                <div class="divider">veya</div>
-                <button id="create-btn" class="create-btn">Yeni Oda Oluştur</button>
+                <input type="text" id="room-input" placeholder="Oda Adı (Örn: Emircan'ın Odası)" autocomplete="off">
+                <button id="create-btn" class="create-btn">Oda Oluştur</button>
             </div>
             <button id="guide-open-btn-landing" class="guide-btn"><i class='bx bx-book-open'></i> Sesli Ekran Paylaşım Rehberi</button>
         </div>

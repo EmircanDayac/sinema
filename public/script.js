@@ -88,52 +88,35 @@ async function startLocalMedia() {
     }
 }
 
-// Check URL Params
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-    roomInput.value = roomParam;
-}
-
+const roomsList = document.getElementById('rooms-list');
 const createBtn = document.getElementById('create-btn');
 
-// Join Room
-joinBtn.addEventListener('click', async () => {
-    const roomName = roomInput.value.trim();
-    if (roomName) {
-        currentRoom = roomName;
-        await startLocalMedia();
-        
-        landingPage.classList.remove('active');
-        roomPage.classList.add('active');
-
-        socket.emit('join-room', currentRoom);
-    }
-});
-
-// Create Room
-createBtn.addEventListener('click', async () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'ODA-';
-    for (let i = 0; i < 4; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    
-    currentRoom = code;
+// Join Room Function
+async function joinRoom(roomId) {
+    currentRoom = roomId;
     await startLocalMedia();
     
     landingPage.classList.remove('active');
     roomPage.classList.add('active');
 
     socket.emit('join-room', currentRoom);
+}
 
-    // Otomatik kopyala
-    const inviteLink = `${window.location.origin}/?room=${currentRoom}`;
-    navigator.clipboard.writeText(inviteLink).then(() => {
-        alert("🎉 Yeni oda oluşturuldu!\n\nDavet linki otomatik kopyalandı. Arkadaşına hemen yapıştırıp gönderebilirsin.");
-    }).catch(err => {
-        alert("Oda oluşturuldu! Menüden 'Davet Linkini Kopyala' butonunu kullanabilirsiniz.");
-    });
+// Check URL Params
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+    joinRoom(roomParam);
+}
+
+// Create Room
+createBtn.addEventListener('click', () => {
+    const roomName = roomInput.value.trim();
+    if (!roomName) {
+        alert("Lütfen oluşturmak için bir oda adı girin!");
+        return;
+    }
+    socket.emit('create-room', roomName);
 });
 
 // Create Peer Connection
@@ -216,6 +199,41 @@ function createPeerConnection(remoteId) {
 }
 
 // Socket Events
+socket.on('rooms-list', (rooms) => {
+    roomsList.innerHTML = '';
+    if (rooms.length === 0) {
+        roomsList.innerHTML = '<li class="empty-rooms">Şu an açık oda yok. Aşağıdan bir tane oluştur!</li>';
+        return;
+    }
+
+    rooms.forEach(room => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="room-info">
+                <span class="room-name">${room.name}</span>
+                <span class="room-size">${room.size}/2 Kişi</span>
+            </div>
+            <button ${room.size >= 2 ? 'disabled' : ''} onclick="joinRoom('${room.id}')">${room.size >= 2 ? 'Dolu' : 'Katıl'}</button>
+        `;
+        roomsList.appendChild(li);
+    });
+});
+
+socket.on('room-created', (roomId) => {
+    joinRoom(roomId);
+    
+    // Otomatik kopyala
+    const inviteLink = `${window.location.origin}/?room=${roomId}`;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+        alert("🎉 Oda oluşturuldu!\n\nDavet linki otomatik kopyalandı. Arkadaşına gönderebilirsin veya ana sayfadaki Lobi listesinden direkt katılabilir.");
+    }).catch(err => {});
+});
+
+socket.on('room-error', (msg) => {
+    alert(msg);
+    window.location.href = '/';
+});
+
 socket.on('user-connected', async (userId) => {
     console.log('User connected', userId);
     polite = false;

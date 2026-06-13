@@ -118,25 +118,85 @@ body {
     box-shadow: 0 5px 15px rgba(253, 216, 53, 0.3);
 }
 
-.divider {
-    color: #666;
-    font-size: 0.9rem;
+.rooms-container {
+    background: rgba(0,0,0,0.4);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: left;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.rooms-container h3 {
+    font-size: 1rem;
+    color: #fdd835;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+#rooms-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#rooms-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.05);
+    padding: 10px 15px;
+    border-radius: 5px;
+    border: 1px solid #333;
+}
+
+#rooms-list li .room-info {
+    display: flex;
+    flex-direction: column;
+}
+
+#rooms-list li .room-name {
     font-weight: 600;
-    margin: 0.5rem 0;
-    position: relative;
+    color: #fff;
 }
 
-.divider::before, .divider::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    width: 40%;
-    height: 1px;
-    background: #333;
+#rooms-list li .room-size {
+    font-size: 0.8rem;
+    color: #aaa;
 }
 
-.divider::before { left: 0; }
-.divider::after { right: 0; }
+#rooms-list li button {
+    background: #fdd835;
+    color: #000;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+#rooms-list li button:hover {
+    background: #e6c32c;
+}
+
+#rooms-list li button:disabled {
+    background: #555;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.empty-rooms {
+    color: #aaa;
+    font-style: italic;
+    text-align: center;
+    padding: 10px !important;
+    background: transparent !important;
+    border: none !important;
+}
 
 .create-btn {
     background: #222 !important;
