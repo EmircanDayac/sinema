@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dayaç Sineması - Sadece Tek Kişiye Özel</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="landing-page" class="active">
+        <div class="glass-panel">
+            <div class="logo">DAYAÇ <span>SİNEMASI</span></div>
+            <p>Sadece tek kişiye özel; kesintisiz, yüksek kalite film keyfi.</p>
+            <div class="input-group">
+                <input type="text" id="room-input" placeholder="Oda İsmi Girin (Örn: AsklarinSinemasi)" autocomplete="off">
+                <button id="join-btn">Salona Geç</button>
+            </div>
+            <button id="guide-open-btn-landing" class="guide-btn"><i class='bx bx-book-open'></i> Sesli Ekran Paylaşım Rehberi</button>
+        </div>
+        <div class="background-elements">
+            <div class="cinema-glow"></div>
+        </div>
+    </div>
+
+    <!-- Rehber Modal -->
+    <div id="guide-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-guide">&times;</span>
+            <h2>🎬 Sorunsuz Film İzleme Rehberi</h2>
+            <div class="guide-step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                    <strong>Chrome veya Edge Kullanın:</strong> En iyi ses ve görüntü kalitesi için bilgisayardan Chrome veya Edge tarayıcısını tercih edin.
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                    <strong>Sekme Paylaşımını Seçin:</strong> "Filmi Paylaş" butonuna tıkladığınızda açılan pencerede <u>"Chrome Sekmesi"</u> veya <u>"Edge Sekmesi"</u> seçeneğine tıklayın. (Tüm Ekranı paylaşmak sesi iletmeyebilir.)
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                    <strong>Sekme Sesini Paylaş:</strong> Seçtiğiniz sekmenin altındaki <u>"Sekme sesini de paylaş" (Share tab audio)</u> kutucuğunun işaretli olduğundan emin olun! Bu sayede filmin sesi karşı tarafa sinema kalitesinde gider.
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="step-num">4</div>
+                <div class="step-text">
+                    <strong>Yankıyı Önleyin:</strong> Filmin sesi karşı tarafa giderken, kendi mikrofonlarınızdan sekip yankı yapmasını engellemek için, film izlerken her ikiniz de menüdeki Mikrofon (<i class='bx bx-microphone'></i>) simgesine basarak mikrofonlarınızı kapatabilirsiniz.
+                </div>
+            </div>
+            <button id="guide-got-it">Anladım, Kapat</button>
+        </div>
+    </div>
+
+    <div id="room-page">
+        <div class="video-container">
+            <video id="main-video" autoplay playsinline></video>
+            <div class="waiting-text" id="waiting-text">
+                <i class='bx bx-movie-play'></i>
+                <p>Film bekleniyor...</p>
+                <span>Aşağıdaki menüden ekran paylaşabilirsiniz.</span>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="brand">DAYAÇ <span>SİNEMASI</span></div>
+            <div class="webcams">
+                <div class="webcam-wrapper">
+                    <video id="local-video" autoplay playsinline muted></video>
+                    <span class="name-tag">Sen</span>
+                </div>
+                <div class="webcam-wrapper" id="remote-webcam-container" style="display:none;">
+                    <video id="remote-video" autoplay playsinline></video>
+                    <span class="name-tag">Partnerin</span>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <button id="mic-btn" class="control-btn active" title="Mikrofonu Kapat/Aç"><i class='bx bx-microphone'></i></button>
+                <button id="camera-btn" class="control-btn active" title="Kamerayı Kapat/Aç"><i class='bx bx-video'></i></button>
+                <button id="guide-open-btn-room" class="control-btn guide-btn-icon" title="Rehber"><i class='bx bx-help-circle'></i></button>
+                <button id="leave-btn" class="control-btn leave-btn" title="Salondan Ayrıl"><i class='bx bx-log-out'></i></button>
+                <button id="screen-btn" class="control-btn share-btn" title="Ekran Paylaş"><i class='bx bx-share-alt'></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
