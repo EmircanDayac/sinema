@@ -57,6 +57,9 @@ let makingOffer = false;
 let ignoreOffer = false;
 let polite = false;
 
+let pendingStreams = {};
+let remoteWebcamStreamId = null;
+
 const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -115,6 +118,14 @@ function createPeerConnection(remoteId) {
     screenSenders = [];
     peerConnection = new RTCPeerConnection(configuration);
     
+    // Send our active stream IDs immediately
+    if (localStream) {
+        socket.emit('webcam-info', localStream.id);
+    }
+    if (isScreenSharing && screenStream) {
+        socket.emit('screen-share-info', { streamId: screenStream.id });
+    }
+    
     // Add local webcam tracks
     if (localStream) {
         localStream.getTracks().forEach(track => {
@@ -133,21 +144,19 @@ function createPeerConnection(remoteId) {
     peerConnection.ontrack = (event) => {
         const stream = event.streams[0];
         
-        // Is this the screen share stream?
-        if (remoteScreenStreamId && stream.id === remoteScreenStreamId) {
-            mainVideo.srcObject = stream;
-            waitingText.style.display = 'none';
-        } else {
-            // First time seeing a stream
-            if (!remoteVideo.srcObject) {
-                remoteVideo.srcObject = stream;
-                remoteWebcamContainer.style.display = 'block';
-            } else if (remoteVideo.srcObject.id !== stream.id) {
-                // Must be the screen share stream
+        if (remoteScreenStreamId === stream.id) {
+            if (mainVideo.srcObject !== stream) {
                 mainVideo.srcObject = stream;
                 waitingText.style.display = 'none';
-                remoteScreenStreamId = stream.id;
             }
+        } else if (remoteWebcamStreamId === stream.id) {
+            if (remoteVideo.srcObject !== stream) {
+                remoteVideo.srcObject = stream;
+                remoteWebcamContainer.style.display = 'block';
+            }
+        } else {
+            // Keep it pending until we get the socket info
+            pendingStreams[stream.id] = stream;
         }
     };
 
@@ -163,7 +172,8 @@ function createPeerConnection(remoteId) {
     peerConnection.onnegotiationneeded = async () => {
         try {
             makingOffer = true;
-            await peerConnection.setLocalDescription();
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
             socket.emit('signal', {
                 to: remoteId,
                 description: peerConnection.localDescription
@@ -217,7 +227,8 @@ socket.on('signal', async (senderId, data) => {
 
             await peerConnection.setRemoteDescription(data.description);
             if (data.description.type === "offer") {
-                await peerConnection.setLocalDescription();
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
                 socket.emit('signal', {
                     to: senderId,
                     description: peerConnection.localDescription
@@ -235,13 +246,25 @@ socket.on('signal', async (senderId, data) => {
     }
 });
 
+socket.on('webcam-info', (id) => {
+    remoteWebcamStreamId = id;
+    if (pendingStreams[id]) {
+        if (remoteVideo.srcObject !== pendingStreams[id]) {
+            remoteVideo.srcObject = pendingStreams[id];
+            remoteWebcamContainer.style.display = 'block';
+        }
+        delete pendingStreams[id];
+    }
+});
+
 socket.on('screen-share-info', (data) => {
     remoteScreenStreamId = data.streamId;
-    if (peerConnection) {
-        // If we already received the track and didn't identify it
-        const receivers = peerConnection.getReceivers();
-        // The ontrack event will handle it if it fires after this.
-        // If it fired before, we already guessed it by ID.
+    if (pendingStreams[data.streamId]) {
+        if (mainVideo.srcObject !== pendingStreams[data.streamId]) {
+            mainVideo.srcObject = pendingStreams[data.streamId];
+            waitingText.style.display = 'none';
+        }
+        delete pendingStreams[data.streamId];
     }
 });
 

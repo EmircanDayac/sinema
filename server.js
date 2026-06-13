@@ -42,6 +42,12 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('webcam-info', (id) => {
+        if (currentRoomId) {
+            socket.to(currentRoomId).emit('webcam-info', id);
+        }
+    });
+
     socket.on('screen-share-info', (data) => {
         if (currentRoomId) {
             socket.to(currentRoomId).emit('screen-share-info', data);
