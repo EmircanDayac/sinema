@@ -95,6 +95,8 @@ if (roomParam) {
     roomInput.value = roomParam;
 }
 
+const createBtn = document.getElementById('create-btn');
+
 // Join Room
 joinBtn.addEventListener('click', async () => {
     const roomName = roomInput.value.trim();
@@ -107,6 +109,31 @@ joinBtn.addEventListener('click', async () => {
 
         socket.emit('join-room', currentRoom);
     }
+});
+
+// Create Room
+createBtn.addEventListener('click', async () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = 'ODA-';
+    for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    currentRoom = code;
+    await startLocalMedia();
+    
+    landingPage.classList.remove('active');
+    roomPage.classList.add('active');
+
+    socket.emit('join-room', currentRoom);
+
+    // Otomatik kopyala
+    const inviteLink = `${window.location.origin}/?room=${currentRoom}`;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+        alert("🎉 Yeni oda oluşturuldu!\n\nDavet linki otomatik kopyalandı. Arkadaşına hemen yapıştırıp gönderebilirsin.");
+    }).catch(err => {
+        alert("Oda oluşturuldu! Menüden 'Davet Linkini Kopyala' butonunu kullanabilirsiniz.");
+    });
 });
 
 // Create Peer Connection
@@ -205,8 +232,13 @@ socket.on('user-disconnected', (userId) => {
         }
         remoteVideo.srcObject = null;
         remoteWebcamContainer.style.display = 'none';
-        mainVideo.srcObject = null;
-        waitingText.style.display = 'flex';
+        
+        // Only clear mainVideo if it was showing the remote user's screen share
+        if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
+            mainVideo.srcObject = null;
+            waitingText.style.display = 'flex';
+        }
+        
         remoteUserId = null;
         remoteScreenStreamId = null;
     }
@@ -269,8 +301,10 @@ socket.on('screen-share-info', (data) => {
 });
 
 socket.on('screen-share-stopped', () => {
-    mainVideo.srcObject = null;
-    waitingText.style.display = 'flex';
+    if (mainVideo.srcObject && remoteScreenStreamId && mainVideo.srcObject.id === remoteScreenStreamId) {
+        mainVideo.srcObject = null;
+        waitingText.style.display = 'flex';
+    }
     remoteScreenStreamId = null;
 });
 
@@ -404,12 +438,16 @@ function stopScreenShare() {
     }
     
     screenSenders = [];
-    screenStream = null;
     isScreenSharing = false;
     screenBtn.classList.remove('active');
-    mainVideo.srcObject = null;
-    waitingText.style.display = 'flex';
     
+    // Sadece eğer ana ekranda bizim paylaştığımız görüntü varsa ekranı temizle
+    if (mainVideo.srcObject === screenStream) {
+        mainVideo.srcObject = null;
+        waitingText.style.display = 'flex';
+    }
+    
+    screenStream = null;
     socket.emit('screen-share-stopped');
 }
 
