@@ -15,6 +15,7 @@ const micBtn = document.getElementById('mic-btn');
 const cameraBtn = document.getElementById('camera-btn');
 const screenBtn = document.getElementById('screen-btn');
 const leaveBtn = document.getElementById('leave-btn');
+const inviteBtn = document.getElementById('invite-btn');
 
 const guideModal = document.getElementById('guide-modal');
 const closeGuide = document.getElementById('close-guide');
@@ -84,6 +85,13 @@ async function startLocalMedia() {
     }
 }
 
+// Check URL Params
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
+if (roomParam) {
+    roomInput.value = roomParam;
+}
+
 // Join Room
 joinBtn.addEventListener('click', async () => {
     const roomName = roomInput.value.trim();
@@ -104,6 +112,7 @@ function createPeerConnection(remoteId) {
         peerConnection.close();
     }
     
+    screenSenders = [];
     peerConnection = new RTCPeerConnection(configuration);
     
     // Add local webcam tracks
@@ -242,7 +251,22 @@ socket.on('screen-share-stopped', () => {
     remoteScreenStreamId = null;
 });
 
+// Room full
+socket.on('room-full', () => {
+    alert('Bu salon tamamen dolu! Sadece 2 kişi girebilir.');
+    window.location.href = '/';
+});
+
 // Controls
+inviteBtn.addEventListener('click', () => {
+    const inviteLink = `${window.location.origin}/?room=${currentRoom}`;
+    navigator.clipboard.writeText(inviteLink).then(() => {
+        alert("Davet linki kopyalandı! Arkadaşına gönderebilirsin.");
+    }).catch(err => {
+        console.error('Kopyalama hatası:', err);
+    });
+});
+
 micBtn.addEventListener('click', () => {
     if (!localStream) return;
     isMicMuted = !isMicMuted;
@@ -280,18 +304,42 @@ screenBtn.addEventListener('click', async () => {
     }
 
     try {
-        screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-                frameRate: { ideal: 60, max: 60 }
-            },
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-                sampleRate: 48000,
-                channelCount: 2
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            alert("Cihazınız veya tarayıcınız ekran paylaşımını desteklemiyor. Lütfen güncel Chrome, Safari veya Edge kullanın.");
+            return;
+        }
+
+        try {
+            // First attempt: High fidelity settings (Desktop/Ideal)
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { frameRate: { ideal: 60, max: 60 } },
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                    sampleRate: 48000,
+                    channelCount: 2
+                }
+            });
+        } catch (highQualityErr) {
+            console.warn("Yüksek kalite ayarları desteklenmiyor, varsayılan ayarlara geçiliyor...", highQualityErr);
+            
+            try {
+                // Second attempt: Basic video and audio (Some mobiles/tablets)
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+            } catch (basicErr) {
+                console.warn("Ses paylaşımı desteklenmiyor, sadece görüntü deneniyor...", basicErr);
+                // Third attempt: Video only (iOS Safari usually requires this)
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: false
+                });
+                alert("Cihazınız ekran sesi paylaşımını desteklemiyor (Telefon/Tablet kısıtlaması). Sadece görüntü paylaşılacaktır.");
             }
-        });
+        }
 
         isScreenSharing = true;
         screenBtn.classList.add('active');
