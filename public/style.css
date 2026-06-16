@@ -490,6 +490,30 @@ body {
     border: 1px solid #333;
 }
 
+.pip-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.2s;
+    backdrop-filter: blur(5px);
+}
+
+.pip-btn:hover {
+    background: rgba(253, 216, 53, 0.8);
+    color: #000;
+    border-color: #fdd835;
+}
+
 .controls-panel {
     padding: 1rem;
     display: flex;

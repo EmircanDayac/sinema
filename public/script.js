@@ -17,6 +17,7 @@ const cameraBtn = document.getElementById('camera-btn');
 const screenBtn = document.getElementById('screen-btn');
 const leaveBtn = document.getElementById('leave-btn');
 const inviteBtn = document.getElementById('invite-btn');
+const pipBtn = document.getElementById('pip-btn');
 
 const guideModal = document.getElementById('guide-modal');
 const closeGuide = document.getElementById('close-guide');
@@ -152,15 +153,36 @@ function createPeerConnection(remoteId) {
     // Add local webcam tracks
     if (localStream) {
         localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
+            const sender = peerConnection.addTrack(track, localStream);
+            if (track.kind === 'video') {
+                const parameters = sender.getParameters();
+                if (!parameters.encodings || parameters.encodings.length === 0) {
+                    parameters.encodings = [{}];
+                }
+                parameters.encodings[0].maxBitrate = 250000; // 250 kbps (Kamera için daha düşük sınır)
+                parameters.degradationPreference = 'maintain-framerate';
+                sender.setParameters(parameters).catch(e => console.error(e));
+            }
         });
     }
 
     // Add screen stream tracks if already sharing
     if (screenStream) {
         screenStream.getTracks().forEach(track => {
+            if (track.kind === 'video') {
+                track.contentHint = 'motion'; // Videonun akıcılığını çözünürlüğe tercih et (donmayı engeller)
+            }
             const sender = peerConnection.addTrack(track, screenStream);
             screenSenders.push(sender);
+            if (track.kind === 'video') {
+                const parameters = sender.getParameters();
+                if (!parameters.encodings || parameters.encodings.length === 0) {
+                    parameters.encodings = [{}];
+                }
+                parameters.encodings[0].maxBitrate = 1500000; // 1.5 Mbps (Film için daha katı sınır)
+                parameters.degradationPreference = 'maintain-framerate';
+                sender.setParameters(parameters).catch(e => console.error(e));
+            }
         });
     }
 
@@ -383,6 +405,20 @@ inviteBtn.addEventListener('click', () => {
     });
 });
 
+if (pipBtn) {
+    pipBtn.addEventListener('click', async () => {
+        if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+        } else if (document.pictureInPictureEnabled && remoteVideo.srcObject) {
+            try {
+                await remoteVideo.requestPictureInPicture();
+            } catch (err) {
+                console.error("PiP hatası:", err);
+            }
+        }
+    });
+}
+
 micBtn.addEventListener('click', () => {
     if (!localStream || !localStream.getAudioTracks()[0]) {
         alert("Mikrofon bulunamadı veya erişim reddedildi.");
@@ -432,12 +468,12 @@ screenBtn.addEventListener('click', async () => {
         }
 
         try {
-            // First attempt: Optimal settings for movies without causing freezing
+            // First attempt: Strict standard HD limits to prevent freezing
             screenStream = await navigator.mediaDevices.getDisplayMedia({
                 video: { 
-                    frameRate: { ideal: 30, max: 60 },
-                    width: { ideal: 1280, max: 1920 },
-                    height: { ideal: 720, max: 1080 }
+                    frameRate: { ideal: 24, max: 30 },
+                    width: { ideal: 1280, max: 1280 },
+                    height: { ideal: 720, max: 720 }
                 },
                 audio: {
                     echoCancellation: false,
@@ -447,6 +483,9 @@ screenBtn.addEventListener('click', async () => {
                     channelCount: 2
                 }
             });
+            
+            // Tell the browser this is a movie/video, prioritize framerate over resolution
+            screenStream.getVideoTracks()[0].contentHint = 'motion';
         } catch (highQualityErr) {
             console.warn("Yüksek kalite ayarları desteklenmiyor, varsayılan ayarlara geçiliyor...", highQualityErr);
             
@@ -475,12 +514,32 @@ screenBtn.addEventListener('click', async () => {
         mainVideo.muted = true; // Kendi paylaştığımız sesi kendimiz duymamalıyız (Yankıyı önler)
         waitingText.style.display = 'none';
 
+        // Ekran paylaştıktan sonra otomatik PiP moduna geçir, böylece başka sekmeye geçse bile partnerini görebilir.
+        if (document.pictureInPictureEnabled && remoteVideo.srcObject && !document.pictureInPictureElement) {
+            try {
+                await remoteVideo.requestPictureInPicture();
+            } catch(e) { console.log("Otomatik PiP başlatılamadı", e); }
+        }
+
         socket.emit('screen-share-info', { streamId: screenStream.id });
 
         screenStream.getTracks().forEach(track => {
+            if (track.kind === 'video') {
+                track.contentHint = 'motion';
+            }
             if (peerConnection) {
                 const sender = peerConnection.addTrack(track, screenStream);
                 screenSenders.push(sender);
+                
+                if (track.kind === 'video') {
+                    const parameters = sender.getParameters();
+                    if (!parameters.encodings || parameters.encodings.length === 0) {
+                        parameters.encodings = [{}];
+                    }
+                    parameters.encodings[0].maxBitrate = 1500000; // 1.5 Mbps sınır
+                    parameters.degradationPreference = 'maintain-framerate';
+                    sender.setParameters(parameters).catch(e => console.error(e));
+                }
             }
             
             track.onended = () => {
